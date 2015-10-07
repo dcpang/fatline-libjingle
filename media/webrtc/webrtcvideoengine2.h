@@ -345,6 +345,7 @@ class WebRtcVideoChannel2 : public rtc::MessageHandler,
     };
 
     union VideoEncoderSettings {
+      webrtc::VideoCodecH264 h264;
       webrtc::VideoCodecVP8 vp8;
       webrtc::VideoCodecVP9 vp9;
     };

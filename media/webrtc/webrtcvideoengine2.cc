@@ -160,9 +160,11 @@ bool CodecIsInternallySupported(const std::string& codec_name) {
     return group_name == "Enabled" || group_name == "EnabledByFlag";
   }
   if (CodecNamesEq(codec_name, kH264CodecName)) {
+    printf("CodecIsInternallySupported kH264CodecName\n");
     return webrtc::H264Encoder::IsSupported() &&
         webrtc::H264Decoder::IsSupported();
   }
+  printf("Codec Not supported %s\n", codec_name.c_str());
   return false;
 }
 
@@ -483,6 +485,12 @@ void* WebRtcVideoChannel2::WebRtcVideoSendStream::ConfigureVideoEncoderSettings(
     options.video_noise_reduction.Get(&denoising);
   }
 
+  if (CodecNamesEq(codec.name, kH264CodecName)) {
+    encoder_settings_.h264 = webrtc::VideoEncoder::GetDefaultH264Settings();
+    encoder_settings_.h264.frameDroppingOn = frame_dropping;
+    return &encoder_settings_.h264;
+  }  
+
   if (CodecNamesEq(codec.name, kVp8CodecName)) {
     encoder_settings_.vp8 = webrtc::VideoEncoder::GetDefaultVp8Settings();
     encoder_settings_.vp8.automaticResizeOn = automatic_resize;
@@ -749,6 +757,7 @@ std::vector<VideoCodec> WebRtcVideoEngine2::GetSupportedCodecs() const {
   const std::vector<WebRtcVideoEncoderFactory::VideoCodec>& codecs =
       external_encoder_factory_->codecs();
   for (size_t i = 0; i < codecs.size(); ++i) {
+    printf("GetSupportedCodecs : %s\n", codecs[i].name.c_str());
     // Don't add internally-supported codecs twice.
     if (CodecIsInternallySupported(codecs[i].name)) {
       continue;
@@ -2366,7 +2375,9 @@ WebRtcVideoChannel2::WebRtcVideoReceiveStream::AllocatedDecoder::
       external_decoder(nullptr),
       type(type),
       external(external) {
+  printf("WebRtcVideoChannel2::WebRtcVideoReceiveStream::AllocatedDecoder: %d\n", (int)type);     
   if (external) {
+    printf("External AllocatedDecoder: %d\n", (int)type); 
     external_decoder = decoder;
     this->decoder =
         new webrtc::VideoDecoderSoftwareFallbackWrapper(type, external_decoder);
@@ -2389,6 +2400,9 @@ WebRtcVideoChannel2::WebRtcVideoReceiveStream::CreateOrReuseVideoDecoder(
     const VideoCodec& codec) {
   webrtc::VideoCodecType type = CodecTypeFromName(codec.name);
 
+  printf("WebRtcVideoReceiveStream:: AllocatedDecoder %s type: %d\n",
+    codec.name.c_str(), (int)type);
+
   for (size_t i = 0; i < old_decoders->size(); ++i) {
     if ((*old_decoders)[i].type == type) {
       AllocatedDecoder decoder = (*old_decoders)[i];
@@ -2398,15 +2412,18 @@ WebRtcVideoChannel2::WebRtcVideoReceiveStream::CreateOrReuseVideoDecoder(
     }
   }
 
-  if (external_decoder_factory_ != NULL) {
+  /*if (external_decoder_factory_ != NULL) {
     webrtc::VideoDecoder* decoder =
         external_decoder_factory_->CreateVideoDecoder(type);
     if (decoder != NULL) {
+      printf("Use external AllocatedDecoder %s type: %d\n",
+          codec.name.c_str(), (int)type);
       return AllocatedDecoder(decoder, type, true);
     }
-  }
+  }*/
 
   if (type == webrtc::kVideoCodecVP8) {
+          printf("AllocatedDecoder kVideoCodecVP8\n");
     return AllocatedDecoder(
         webrtc::VideoDecoder::Create(webrtc::VideoDecoder::kVp8), type, false);
   }
@@ -2415,8 +2432,10 @@ WebRtcVideoChannel2::WebRtcVideoReceiveStream::CreateOrReuseVideoDecoder(
     return AllocatedDecoder(
         webrtc::VideoDecoder::Create(webrtc::VideoDecoder::kVp9), type, false);
   }
-
+  printf("WebRtcVideoReceiveStream:: Check kVideoCodecH264  %s type: %d %d\n",
+    codec.name.c_str(), (int) type, (int) webrtc::kVideoCodecH264);
   if (type == webrtc::kVideoCodecH264) {
+      printf("AllocatedDecoder kVideoCodecH264\n");
     return AllocatedDecoder(
         webrtc::VideoDecoder::Create(webrtc::VideoDecoder::kH264), type, false);
   }
@@ -2588,6 +2607,7 @@ WebRtcVideoChannel2::WebRtcVideoReceiveStream::GetCodecNameFromPayloadType(
     int payload_type) {
   for (const webrtc::VideoReceiveStream::Decoder& decoder : config_.decoders) {
     if (decoder.payload_type == payload_type) {
+      printf("GetCodecNameFromPayloadType: %s\n", decoder.payload_name.c_str());
       return decoder.payload_name;
     }
   }
