@@ -490,6 +490,12 @@ void* WebRtcVideoChannel2::WebRtcVideoSendStream::ConfigureVideoEncoderSettings(
     options.video_noise_reduction.Get(&denoising);
   }
 
+ if (CodecNamesEq(codec.name, kH264CodecName)) {
+     encoder_settings_.h264 = webrtc::VideoEncoder::GetDefaultH264Settings();
+     encoder_settings_.h264.frameDroppingOn = frame_dropping;
+     return &encoder_settings_.h264;
+  }  
+
   if (CodecNamesEq(codec.name, kVp8CodecName)) {
     encoder_settings_.vp8 = webrtc::VideoEncoder::GetDefaultVp8Settings();
     encoder_settings_.vp8.automaticResizeOn = automatic_resize;
@@ -2380,6 +2386,11 @@ WebRtcVideoChannel2::WebRtcVideoReceiveStream::CreateOrReuseVideoDecoder(
     }
   }
 
+  if (type == webrtc::kVideoCodecH264) {
+    return AllocatedDecoder(
+        webrtc::VideoDecoder::Create(webrtc::VideoDecoder::kH264), type, false);
+  }
+
   if (external_decoder_factory_ != NULL) {
     webrtc::VideoDecoder* decoder =
         external_decoder_factory_->CreateVideoDecoder(type);
@@ -2396,11 +2407,6 @@ WebRtcVideoChannel2::WebRtcVideoReceiveStream::CreateOrReuseVideoDecoder(
   if (type == webrtc::kVideoCodecVP9) {
     return AllocatedDecoder(
         webrtc::VideoDecoder::Create(webrtc::VideoDecoder::kVp9), type, false);
-  }
-
-  if (type == webrtc::kVideoCodecH264) {
-    return AllocatedDecoder(
-        webrtc::VideoDecoder::Create(webrtc::VideoDecoder::kH264), type, false);
   }
 
   // This shouldn't happen, we should not be trying to create something we don't
